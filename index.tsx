@@ -1,36 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createRoot } from 'react-dom/client';
-import { GoogleGenAI, Chat, GenerateContentResponse } from "@google/genai";
-
-const SYSTEM_INSTRUCTION = `
-Você é o "Assistente First-Aid Elétrico" da empresa EPSE. Seu objetivo é prestar suporte técnico de primeiro nível para clientes que possuem nobreaks alugados. Sua prioridade absoluta é a segurança do usuário e a preservação do equipamento.
-
-### DIRETRIZES DE COMPORTAMENTO:
-1. SEGURANÇA EM PRIMEIRO LUGAR: Se o usuário relatar cheiro de queimado, fumaça, faíscas ou ruídos de explosão, instrua-o IMEDIATAMENTE a manter distância do equipamento e acionar o suporte de emergência da EPSE. Nunca sugira que o cliente abra o equipamento. Sua resposta para este caso deve ser clara, direta e focada em segurança.
-2. LINGUAGEM ACESSÍVEL: Traduza termos técnicos. Em vez de "Subtensão na entrada", use "A energia que vem da rua está muito baixa".
-3. DIAGNÓSTICO GUIADO: Não dê todas as soluções de uma vez. Faça perguntas por etapas (ex: "O que aparece no visor?", "Qual a cor da luz que está piscando?").
-4. FOCO EM NOBREAKS: Seu conhecimento principal baseia-se em manuais de nobreaks (especialmente as marcas trabalhadas pela EPSE como SMS, NHS, Schneider e Vertiv).
-
-### PROCEDIMENTO DE DIAGNÓSTICO:
-- Passo 1: Identificar o estado atual (O nobreak está ligado? Tem energia na tomada? Há alertas sonoros?).
-- Passo 2: Interpretar sinais (Relacionar bipes e cores de LEDs com possíveis falhas).
-- Passo 3: Sugerir ações simples e seguras (Verificar disjuntor de entrada, reduzir carga conectada, realizar reset a frio se seguro).
-- Passo 4: Encaminhamento (Se o problema persistir, forneça o telefone de suporte da EPSE: (11) 2602-2500 ou o telefone de plantão para emergências: (11) 2602-2500, opção 3. Peça para o cliente anotar o código de erro gerado, se houver).
-
-### RESTRIÇÕES:
-- Nunca invente códigos de erro. Se não souber, peça para o usuário descrever o que vê.
-- Nunca recomende reparos internos pelo cliente.
-- Mantenha um tom profissional, calmo e prestativo.
-
-### CONTEXTO DA EPSE:
-- A EPSE (Empresa Paulista de Soluções em Energia) preza pela continuidade da operação dos clientes.
-- Caso o diagnóstico indique bateria descarregada, explique que o nobreak precisa de algumas horas para recarregar após a volta da energia.
-
-### FORMATO DA RESPOSTA:
-Sempre retorne sua resposta como um objeto JSON. O objeto deve ter a chave "message" (uma string com seu texto para o usuário) e "options" (um array de strings para os botões de resposta). Se não houver mais opções para o usuário, retorne um array vazio para "options". Se for uma emergência de segurança, a mensagem deve ser enfática e a lista de opções deve estar vazia.
-Exemplo de resposta normal: {"message": "Entendido. O apito é contínuo ou com pausas?", "options": ["Contínuo", "Com pausas"]}
-Exemplo de resposta de emergência: {"message": "ATENÇÃO: SEGURANÇA EM PRIMEIRO LUGAR! Afaste-se imediatamente do equipamento...", "options": []}
-`;
 
 interface Message {
   role: 'user' | 'assistant';
@@ -38,10 +7,108 @@ interface Message {
   isDanger?: boolean;
 }
 
-interface AssistantResponse {
-  message: string;
-  options: string[];
-}
+const conversationTree = {
+  start: {
+    message: 'Olá! Sou o "Assistente First-Aid Elétrico" da EPSE. Por favor, selecione o problema com seu nobreak.',
+    options: [
+      { text: 'Está apitando', nextStep: 'beep_type' },
+      { text: 'Não liga', nextStep: 'wont_turn_on_check_plug' },
+      { text: 'Cheiro de queimado ou fumaça', nextStep: 'safety_alert' },
+    ],
+  },
+  safety_alert: {
+    message: '<strong>ATENÇÃO: SEGURANÇA EM PRIMEIRO LUGAR!</strong><br/><br/>Afaste-se imediatamente do equipamento. Não toque no nobreak ou nos cabos.<br/><br/>Se for seguro, desligue o disjuntor de energia do cômodo. Entre em contato com nosso plantão de emergência <strong>IMEDIATAMENTE</strong>.<br/><br/><a href="tel:+551126022500,3">(11) 2602-2500 (Opção 3)</a>',
+    isDanger: true,
+    options: [{ text: 'Reiniciar conversa', nextStep: 'start' }],
+  },
+  beep_type: {
+    message: 'Entendido. O apito é contínuo ou tem pausas (intermitente)?',
+    options: [
+      { text: 'Contínuo', nextStep: 'continuous_beep_cause' },
+      { text: 'Com pausas', nextStep: 'intermittent_beep_cause' },
+    ],
+  },
+  continuous_beep_cause: {
+    message: 'Um apito contínuo geralmente indica <strong>sobrecarga</strong>. Há muitos equipamentos ligados ao nobreak?',
+    options: [
+      { text: 'Sim, vários equipamentos', nextStep: 'overload_solution' },
+      { text: 'Não, poucos equipamentos', nextStep: 'not_overload' },
+    ],
+  },
+  overload_solution: {
+    message: 'Por favor, desconecte alguns aparelhos menos importantes da saída do nobreak e observe se o apito para.',
+    options: [
+      { text: 'O apito parou', nextStep: 'success_end' },
+      { text: 'O apito continua', nextStep: 'contact_support' },
+    ],
+  },
+  not_overload: {
+    message: 'Ok. Se não é sobrecarga, pode ser uma falha interna. Neste caso, o ideal é acionar nosso suporte técnico para uma análise segura.',
+    options: [{ text: 'Entrar em contato com suporte', nextStep: 'contact_support' }],
+  },
+  intermittent_beep_cause: {
+    message: 'Apitos com pausas normalmente indicam que o nobreak está <strong>usando a bateria</strong>. Faltou energia na sua região?',
+    options: [
+      { text: 'Sim, a energia caiu', nextStep: 'power_outage_info' },
+      { text: 'Não, a energia está normal', nextStep: 'normal_power_battery_check' },
+    ],
+  },
+  power_outage_info: {
+    message: 'Certo. O nobreak está funcionando como esperado. Recomendo que salve seus trabalhos e desligue os equipamentos para economizar a carga da bateria até a energia retornar.',
+    options: [
+        { text: 'Entendido, obrigado!', nextStep: 'end_conversation' },
+        { text: 'Reiniciar conversa', nextStep: 'start' }
+    ],
+  },
+  normal_power_battery_check: {
+    message: 'Se a energia está normal, o problema pode ser na qualidade da energia da rua ou uma falha na bateria. É uma situação que requer análise técnica para não danificar seus equipamentos.',
+    options: [{ text: 'Entrar em contato com suporte', nextStep: 'contact_support' }],
+  },
+  wont_turn_on_check_plug: {
+    message: 'Vamos ao básico. O nobreak está conectado firmemente na tomada e a tomada tem energia? Você pode testar a tomada com outro aparelho, como um carregador de celular.',
+    options: [
+      { text: 'Sim, a tomada funciona', nextStep: 'power_in_outlet_check_breaker' },
+      { text: 'Não, a tomada está sem energia', nextStep: 'no_power_in_outlet' },
+    ],
+  },
+  no_power_in_outlet: {
+    message: 'O problema parece ser a tomada. Por favor, verifique o disjuntor correspondente no seu quadro de energia. Se não resolver, você precisará de um eletricista.',
+    options: [
+        { text: 'Ok, vou verificar', nextStep: 'end_conversation' },
+        { text: 'Reiniciar conversa', nextStep: 'start' }
+    ],
+  },
+  power_in_outlet_check_breaker: {
+    message: 'Ok. Verifique na parte de trás do nobreak se há um pequeno botão (geralmente preto ou vermelho) chamado "circuit breaker". Ele está saltado para fora?',
+    options: [
+      { text: 'Sim, estava saltado', nextStep: 'reset_breaker' },
+      { text: 'Não, parece normal', nextStep: 'contact_support' },
+    ],
+  },
+  reset_breaker: {
+    message: 'Pressione esse botão para rearmá-lo e tente ligar o nobreak novamente. Isso resolveu?',
+    options: [
+      { text: 'Sim, agora ligou!', nextStep: 'success_end' },
+      { text: 'Não, continua sem ligar', nextStep: 'contact_support' },
+    ],
+  },
+  contact_support: {
+    message: 'Entendido. Para garantir sua segurança e a do equipamento, o melhor a fazer é acionar nosso suporte técnico. Anote qualquer informação que veja no visor, se houver.<br/><br/>Ligue para: <a href="tel:+551126022500">(11) 2602-2500</a>',
+    options: [
+        { text: 'Obrigado!', nextStep: 'end_conversation' },
+        { text: 'Reiniciar conversa', nextStep: 'start' }
+    ],
+  },
+  success_end: {
+    message: 'Excelente! Fico feliz em ter ajudado. Se o problema retornar, não hesite em nos contatar.',
+    options: [{ text: 'Reiniciar conversa', nextStep: 'start' }],
+  },
+  end_conversation: {
+    message: 'Obrigado por utilizar nosso assistente. Estamos à disposição!',
+    options: [{ text: 'Reiniciar conversa', nextStep: 'start' }],
+  }
+};
+
 
 const EpseLogo = ({ className }) => (
   <svg
@@ -111,10 +178,9 @@ const Modal = ({ onClose }) => (
 );
 
 const App = () => {
-  const [chat, setChat] = useState<Chat | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [currentOptions, setCurrentOptions] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [currentOptions, setCurrentOptions] = useState<{text: string; nextStep: string}[]>([]);
+  const [currentStepId, setCurrentStepId] = useState('start');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -124,87 +190,33 @@ const App = () => {
   };
 
   useEffect(scrollToBottom, [messages]);
-
-  const handleAssistantResponse = (response: GenerateContentResponse) => {
-    const responseText = response.text;
-    if (!responseText) {
-        console.error("No text found in assistant response", response);
-        setMessages(prev => [...prev, { role: 'assistant', content: "Ocorreu um erro ao receber a resposta. Por favor, tente reiniciar a conversa." }]);
-        setCurrentOptions([]);
-        return;
-    }
-
-    const parsedData = parseResponse(responseText);
-    if (parsedData) {
-        const isSafetyAlert = parsedData.message.includes("SEGURANÇA EM PRIMEIRO LUGAR");
-        setMessages(prev => [...prev, { role: 'assistant', content: parsedData.message, isDanger: isSafetyAlert }]);
-        setCurrentOptions(parsedData.options);
-    } else {
-        setMessages(prev => [...prev, { role: 'assistant', content: "Desculpe, não entendi a resposta. Poderia tentar de novo?" }]);
-        setCurrentOptions([]);
-    }
-  };
-
-  const initChat = async () => {
-      setIsLoading(true);
-      setMessages([]);
-      setCurrentOptions([]);
-      try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const chatSession = ai.chats.create({
-          model: 'gemini-3-flash-preview',
-          config: { systemInstruction: SYSTEM_INSTRUCTION },
-        });
-        setChat(chatSession);
-
-        const response = await chatSession.sendMessage({ message: "Inicie a conversa como o assistente da EPSE. Cumprimente o usuário e pergunte de forma concisa como você pode ajudar com o nobreak dele." });
-        handleAssistantResponse(response);
-
-      } catch (error) {
-        console.error("Erro ao inicializar o chat:", error);
-        setMessages([{ role: 'assistant', content: "Desculpe, não consigo me conectar ao assistente no momento. Por favor, tente novamente mais tarde." }]);
-      } finally {
-        setIsLoading(false);
-      }
-    };
   
+  const initChat = () => {
+    setMessages([]);
+    setCurrentStepId('start');
+  };
+  
+  useEffect(() => {
+    const currentStep = conversationTree[currentStepId];
+    if (currentStep) {
+        // Add a small delay to simulate the assistant "typing"
+        const timer = setTimeout(() => {
+            setMessages(prev => [...prev, { role: 'assistant', content: currentStep.message, isDanger: !!currentStep.isDanger }]);
+            setCurrentOptions(currentStep.options || []);
+        }, 250);
+        
+        return () => clearTimeout(timer);
+    }
+  }, [currentStepId]);
+
   useEffect(() => {
     initChat();
   }, []);
-  
-  const parseResponse = (responseText: string | null | undefined): AssistantResponse | null => {
-    if (!responseText) {
-        return null;
-    }
-    try {
-        const cleanedText = responseText.replace(/```json|```/g, '').trim();
-        const parsed = JSON.parse(cleanedText);
-        if (parsed.message && Array.isArray(parsed.options)) {
-            return parsed;
-        }
-        return null;
-    } catch (error) {
-        console.error("Erro ao parsear a resposta do assistente:", error, responseText);
-        return { message: responseText, options: [] };
-    }
-  };
 
-  const handleSend = async (messageText: string) => {
-    if (!chat || isLoading) return;
-
-    setIsLoading(true);
+  const handleSend = (option: { text: string; nextStep: string }) => {
+    setMessages(prev => [...prev, { role: 'user', content: option.text }]);
     setCurrentOptions([]);
-    setMessages(prev => [...prev, { role: 'user', content: messageText }]);
-
-    try {
-      const response = await chat.sendMessage({ message: messageText });
-      handleAssistantResponse(response);
-    } catch (error) {
-      console.error("Erro ao enviar mensagem:", error);
-      setMessages(prev => [...prev, { role: 'assistant', content: "Ocorreu um erro. Por favor, tente novamente." }]);
-    } finally {
-      setIsLoading(false);
-    }
+    setCurrentStepId(option.nextStep);
   };
 
   return (
@@ -220,23 +232,14 @@ const App = () => {
               <div className="message-content" dangerouslySetInnerHTML={{ __html: msg.content.replace(/\n/g, '<br />') }} />
             </div>
           ))}
-          {isLoading && messages.length > 0 && (
-            <div className="message assistant">
-              <div className="loading-indicator">
-                <div className="dot"></div>
-                <div className="dot"></div>
-                <div className="dot"></div>
-              </div>
-            </div>
-          )}
           <div ref={messagesEndRef} />
         </div>
         <div className="chat-input-area">
-          {!isLoading && currentOptions.length > 0 && (
+          {currentOptions.length > 0 && (
             <div className="options-container">
               {currentOptions.map((option, index) => (
-                <button key={index} className="option-button" onClick={() => handleSend(option)} disabled={isLoading}>
-                  {option}
+                <button key={index} className="option-button" onClick={() => handleSend(option)}>
+                  {option.text}
                 </button>
               ))}
             </div>
