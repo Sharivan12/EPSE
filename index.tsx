@@ -193,6 +193,7 @@ const App = () => {
   
   const initChat = () => {
     setMessages([]);
+    setCurrentOptions([]);
     setCurrentStepId('start');
   };
   
@@ -214,6 +215,11 @@ const App = () => {
   }, []);
 
   const handleSend = (option: { text: string; nextStep: string }) => {
+    if (option.nextStep === 'start') {
+        initChat();
+        return;
+    }
+    
     setMessages(prev => [...prev, { role: 'user', content: option.text }]);
     setCurrentOptions([]);
     setCurrentStepId(option.nextStep);
