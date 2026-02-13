@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guia EPSE de Emergência</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #c00000;
+            --header-bg: rgba(15, 15, 15, 0.7);
+            --user-bg: #383838;
+            --assistant-bg: #282828;
+            --danger-color: #ff8a80;
+            --danger-bg: rgba(211, 47, 47, 0.2);
+            --text-color: #f0f0f0;
+            --light-text-color: #ffffff;
+            --border-color: rgba(255, 255, 255, 0.15);
+            --font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        body {
+            font-family: var(--font-family);
+            margin: 0;
+            background-color: #000000;
+            color: var(--text-color);
+            overscroll-behavior: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+
+        #root {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            background-color: #121212;
+            box-sizing: border-box;
+            padding-bottom: 120px;
+        }
+
+        .chat-header {
+            background-color: var(--header-bg);
+            backdrop-filter: blur(10px);
+            color: var(--text-color);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            flex-shrink: 0;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header-logo {
+            height: 30px;
+            width: auto;
+        }
+
+        .chat-header h1 {
+            margin: 0;
+            font-size: inherit;
+        }
+
+        .chat-messages {
+            flex-grow: 1;
+            padding: 24px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            background-color: #000;
+            background-image: radial-gradient(circle at 50% 30%, #3d070d 0%, #1a0307 50%, #000000 90%);
+        }
+
+        .message {
+            display: flex;
+            flex-direction: column;
+            max-width: 85%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            line-height: 1.5;
+            word-wrap: break-word;
+        }
+
+        .message.assistant {
+            background-color: var(--assistant-bg);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message.user {
+            background-color: var(--user-bg);
+            color: var(--text-color);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.danger {
+            background-color: var(--danger-bg);
+            border: 1px solid var(--primary-color);
+            color: var(--danger-color);
+            font-weight: 500;
+        }
+        
+        .message.welcome-message {
+            background-color: transparent;
+            border: none;
+            align-self: center;
+            max-width: 95%;
+            text-align: center;
+            padding-top: 0;
+            padding-bottom: 0;
+            color: #a0a0a0;
+        }
+
+
+        .chat-input-area {
+            position: fixed;
+            bottom: 60px;
+            left: 0;
+            right: 0;
+            padding: 16px 24px;
+            border-top: 1px solid var(--border-color);
+            background-color: var(--header-bg);
+            backdrop-filter: blur(10px);
+        }
+        
+        .options-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .option-button {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 10px 20px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+            font-weight: 500;
+        }
+
+        .option-button:hover:not(:disabled) {
+            background-color: var(--primary-color);
+            color: var(--light-text-color);
+            border-color: var(--primary-color);
+        }
+        
+        .option-button:disabled {
+            background-color: #333;
+            border-color: #444;
+            color: #888;
+            cursor: not-allowed;
+        }
+        
+        .loading-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            display: flex;
+            justify-content: space-around;
+            background-color: var(--header-bg);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid var(--border-color);
+            z-index: 100;
+            height: 60px;
+        }
+
+        .nav-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            color: #b0b0b0;
+            font-size: 0.75rem;
+            gap: 4px;
+        }
+        .nav-button svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #2a2a2a;
+            color: var(--text-color);
+            padding: 24px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            border: 1px solid var(--border-color);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 16px;
+            margin-bottom: 16px;
+        }
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+        .modal-close-button {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+            color: var(--text-color);
+        }
+        .modal-body h3 {
+            color: var(--primary-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+            margin-top: 24px;
+        }
+        .modal-body ul {
+            list-style: none;
+            padding: 0;
+        }
+        .modal-body li {
+            padding: 4px 0;
+            font-size: 0.95rem;
+        }
+        .modal-body p {
+            line-height: 1.6;
+            margin: 8px 0;
+        }
+        .modal-body a {
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+        .modal-body a:hover {
+            text-decoration: underline;
+        }
+
+        @media (min-width: 600px) {
+            #root {
+                height: auto;
+            }
+            .chat-container {
+                max-width: 400px;
+                height: 85vh;
+                max-height: 800px;
+                margin: auto;
+                border-radius: 24px;
+                box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
+                border: 8px solid #000000;
+                position: relative;
+                overflow: hidden;
+                padding-bottom: 0;
+            }
+
+            .chat-header {
+               position: absolute;
+               width: 100%;
+               box-sizing: border-box;
+            }
+            .chat-messages {
+                height: 100%;
+                padding-top: 80px;
+                padding-bottom: 140px;
+            }
+
+            .chat-input-area {
+                position: absolute;
+                width: 100%;
+                box-sizing: border-box;
+            }
+
+            .bottom-nav {
+                position: absolute;
+                width: 100%;
+                box-sizing: border-box;
+            }
+        }
+
+    </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.41.0",
+    "react/": "https://esm.sh/react@^19.2.4/"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+</body>
+</html>
