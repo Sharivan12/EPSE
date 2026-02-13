@@ -9,17 +9,22 @@ interface Message {
 
 const conversationTree = {
   start: {
-    message: 'Olá! Sou o "Assistente First-Aid Elétrico" da EPSE. Por favor, selecione o problema com seu nobreak.',
+    message: 'Bem-vindo ao Guia EPSE. Para começar, por favor, selecione a potência do seu nobreak.',
+    options: [
+      { text: 'Menor ou igual a 6kVA', nextStep: 'start_small_kva' },
+      { text: 'Maior que 6kVA', nextStep: 'start_large_kva' },
+    ],
+  },
+
+  // Small KVA Branch (≤ 6kVA)
+  start_small_kva: {
+    message: 'Ok, nobreak de pequeno porte. Por favor, selecione o problema.',
     options: [
       { text: 'Está apitando', nextStep: 'beep_type' },
       { text: 'Não liga', nextStep: 'wont_turn_on_check_plug' },
+      { text: 'LED de bateria aceso/piscando', nextStep: 'battery_led_issue' },
       { text: 'Cheiro de queimado ou fumaça', nextStep: 'safety_alert' },
     ],
-  },
-  safety_alert: {
-    message: '<strong>ATENÇÃO: SEGURANÇA EM PRIMEIRO LUGAR!</strong><br/><br/>Afaste-se imediatamente do equipamento. Não toque no nobreak ou nos cabos.<br/><br/>Se for seguro, desligue o disjuntor de energia do cômodo. Entre em contato com nosso plantão de emergência <strong>IMEDIATAMENTE</strong>.<br/><br/><a href="tel:+551126022500,3">(11) 2602-2500 (Opção 3)</a>',
-    isDanger: true,
-    options: [{ text: 'Reiniciar conversa', nextStep: 'start' }],
   },
   beep_type: {
     message: 'Entendido. O apito é contínuo ou tem pausas (intermitente)?',
@@ -92,8 +97,118 @@ const conversationTree = {
       { text: 'Não, continua sem ligar', nextStep: 'contact_support' },
     ],
   },
+  battery_led_issue: {
+      message: 'O LED da bateria aceso ou piscando geralmente indica que as baterias estão no fim da vida útil e precisam ser substituídas. O nobreak ainda está fornecendo energia?',
+      options: [
+          { text: 'Sim, mas o LED está aceso', nextStep: 'battery_led_replace' },
+          { text: 'Não, o nobreak desligou', nextStep: 'battery_failed_contact' },
+      ]
+  },
+  battery_led_replace: {
+      message: 'Recomendamos a troca das baterias o mais breve possível para garantir a autonomia em uma próxima queda de energia. Gostaria de entrar em contato com nosso setor comercial?',
+      options: [
+          { text: 'Sim, por favor', nextStep: 'contact_support_sales' },
+          { text: 'Não, obrigado', nextStep: 'end_conversation' },
+      ]
+  },
+  battery_failed_contact: {
+      message: 'Isso indica que as baterias falharam completamente. O equipamento precisará de uma manutenção corretiva. Por favor, entre em contato com nosso suporte técnico.',
+      options: [
+          { text: 'Entrar em contato com suporte', nextStep: 'contact_support' }
+      ]
+  },
+
+  // Large KVA Branch (> 6kVA)
+  start_large_kva: {
+    message: 'Ok, nobreak de grande porte. Qual é o sintoma principal?',
+    options: [
+      { text: 'Alarme sonoro e código no display', nextStep: 'large_alarm' },
+      { text: 'Não liga / Está em Bypass', nextStep: 'large_wont_start' },
+      { text: 'Barulho excessivo (ventiladores)', nextStep: 'large_fan_noise' },
+      { text: 'Cheiro de queimado ou fumaça', nextStep: 'safety_alert' },
+    ],
+  },
+  large_alarm: {
+      message: 'Alarmes em equipamentos de grande porte são específicos. Você consegue identificar o código ou a mensagem exibida no painel LCD?',
+      options: [
+          { text: 'Sim, tenho o código/mensagem', nextStep: 'large_alarm_code' },
+          { text: 'Não, apenas o alarme sonoro', nextStep: 'large_alarm_no_code' },
+      ]
+  },
+  large_alarm_code: {
+      message: 'Ótimo. Por favor, anote o código e entre em contato com nosso suporte técnico para um diagnóstico preciso. Isso agilizará muito o atendimento.',
+      options: [
+          { text: 'Entrar em contato com suporte', nextStep: 'contact_support' },
+      ]
+  },
+  large_alarm_no_code: {
+      message: 'Entendido. Desligue o alarme sonoro se for possível (geralmente segurando um botão "mute" ou "esc") e observe se o nobreak continua alimentando a carga. De qualquer forma, é essencial o contato com nosso suporte técnico.',
+      options: [
+          { text: 'Entrar em contato com suporte', nextStep: 'contact_support' },
+      ]
+  },
+  large_wont_start: {
+      message: 'Vamos verificar alguns pontos comuns em nobreaks maiores. Por favor, verifique a posição da chave de bypass de manutenção. Ela deve estar na posição "Normal" ou "Nobreak".',
+      options: [
+          { text: 'A chave está na posição correta', nextStep: 'large_check_breakers' },
+          { text: 'A chave estava em "Bypass"', nextStep: 'large_switch_to_normal' },
+      ]
+  },
+  large_check_breakers: {
+      message: 'Ok. Verifique os disjuntores de entrada e saída do nobreak no seu painel elétrico. Estão todos armados?',
+      options: [
+          { text: 'Sim, estão todos armados', nextStep: 'contact_support_large' },
+          { text: 'Encontrei um disjuntor desarmado', nextStep: 'large_reset_breaker' },
+      ]
+  },
+  large_switch_to_normal: {
+      message: 'Coloque a chave na posição "Normal" ou "Nobreak" e tente ligar o equipamento novamente. Isso resolveu?',
+      options: [
+          { text: 'Sim, o nobreak ligou', nextStep: 'success_end' },
+          { text: 'Não, continua sem funcionar', nextStep: 'contact_support_large' },
+      ]
+  },
+  large_reset_breaker: {
+      message: 'Tente rearmar o disjuntor. Se ele desarmar novamente, NÃO insista. Há um curto-circuito ou sobrecarga grave. Contate nosso suporte de emergência IMEDIATAMENTE.',
+      options: [
+          { text: 'Entrar em contato com emergência', nextStep: 'safety_alert_contact' },
+      ]
+  },
+  large_fan_noise: {
+      message: 'Barulho excessivo nos ventiladores geralmente indica desgaste ou falha iminente. A refrigeração é vital para o nobreak. Agendar uma manutenção preventiva é altamente recomendado para evitar um superaquecimento e falha geral.',
+      options: [
+          { text: 'Agendar manutenção', nextStep: 'contact_support_sales' },
+          { text: 'Entendido', nextStep: 'end_conversation' },
+      ]
+  },
+
+  // Common/Shared Nodes
+  safety_alert: {
+    message: '<strong>ATENÇÃO: SEGURANÇA EM PRIMEIRO LUGAR!</strong><br/><br/>Afaste-se imediatamente do equipamento. Não toque no nobreak ou nos cabos.<br/><br/>Se for seguro, desligue o disjuntor de energia do cômodo. Entre em contato com nosso plantão de emergência <strong>IMEDIATAMENTE</strong>.<br/><br/><a href="tel:+551126022500,3">(11) 2602-2500 (Opção 3)</a>',
+    isDanger: true,
+    options: [{ text: 'Reiniciar conversa', nextStep: 'start' }],
+  },
+  safety_alert_contact: {
+      message: '<strong>NÃO INSISTA EM REARMAR O DISJUNTOR.</strong><br/><br/>Contate nosso plantão de emergência <strong>IMEDIATAMENTE</strong> para evitar danos maiores ou riscos.<br/><br/><a href="tel:+551126022500,3">(11) 2602-2500 (Opção 3)</a>',
+      isDanger: true,
+      options: [{ text: 'Reiniciar conversa', nextStep: 'start' }],
+  },
   contact_support: {
     message: 'Entendido. Para garantir sua segurança e a do equipamento, o melhor a fazer é acionar nosso suporte técnico. Anote qualquer informação que veja no visor, se houver.<br/><br/>Ligue para: <a href="tel:+551126022500">(11) 2602-2500</a>',
+    options: [
+        { text: 'Obrigado!', nextStep: 'end_conversation' },
+        { text: 'Reiniciar conversa', nextStep: 'start' }
+    ],
+  },
+  contact_support_large: {
+    message: 'Pelas verificações, o problema parece ser mais complexo e requer análise técnica especializada. Por favor, entre em contato com nosso suporte para agendar uma visita.<br/><br/>Ligue para: <a href="tel:+551126022500">(11) 2602-2500</a>',
+    options: [
+        { text: 'Obrigado!', nextStep: 'end_conversation' },
+        { text: 'Reiniciar conversa', nextStep: 'start' }
+    ],
+  },
+  contact_support_sales: {
+    message: 'Excelente. Para agendar manutenções ou solicitar um orçamento de baterias, entre em contato com nosso setor comercial.<br/><br/>Ligue para: <a href="tel:+551126022500">(11) 2602-2500</a> e peça para falar com o comercial.',
     options: [
         { text: 'Obrigado!', nextStep: 'end_conversation' },
         { text: 'Reiniciar conversa', nextStep: 'start' }
@@ -198,8 +313,19 @@ const App = () => {
   };
   
   useEffect(() => {
+    // If we are at the beginning, we don't want to show the welcome message immediately.
+    // The user action of starting a new chat should trigger the first message.
+    if (messages.length === 0 && currentStepId === 'start') {
+        const initialStep = conversationTree[currentStepId];
+        const timer = setTimeout(() => {
+            setMessages([{ role: 'assistant', content: initialStep.message }]);
+            setCurrentOptions(initialStep.options || []);
+        }, 250);
+        return () => clearTimeout(timer);
+    }
+    
     const currentStep = conversationTree[currentStepId];
-    if (currentStep) {
+    if (currentStep && (messages.length > 0 && messages[messages.length-1].role === 'user')) {
         // Add a small delay to simulate the assistant "typing"
         const timer = setTimeout(() => {
             setMessages(prev => [...prev, { role: 'assistant', content: currentStep.message, isDanger: !!currentStep.isDanger }]);
@@ -208,7 +334,7 @@ const App = () => {
         
         return () => clearTimeout(timer);
     }
-  }, [currentStepId]);
+  }, [currentStepId, messages]);
 
   useEffect(() => {
     initChat();
