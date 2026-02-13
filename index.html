@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Guia EPSE de Emergência</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -47,7 +47,7 @@
             height: 100%;
             background-color: #121212;
             box-sizing: border-box;
-            padding-bottom: 120px;
+            padding-bottom: calc(120px + env(safe-area-inset-bottom));
         }
 
         .chat-header {
@@ -133,7 +133,7 @@
 
         .chat-input-area {
             position: fixed;
-            bottom: 60px;
+            bottom: calc(60px + env(safe-area-inset-bottom));
             left: 0;
             right: 0;
             padding: 16px 24px;
@@ -208,6 +208,7 @@
             border-top: 1px solid var(--border-color);
             z-index: 100;
             height: 60px;
+            padding-bottom: env(safe-area-inset-bottom);
         }
 
         .nav-button {
@@ -324,7 +325,7 @@
             .chat-messages {
                 height: 100%;
                 padding-top: 80px;
-                padding-bottom: 140px;
+                padding-bottom: calc(140px + env(safe-area-inset-bottom));
             }
 
             .chat-input-area {
